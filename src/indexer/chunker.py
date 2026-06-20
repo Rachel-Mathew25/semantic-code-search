@@ -47,6 +47,21 @@ def chunk_python_file(file_path):
     return chunks
 
 
+def chunk_repository(repo_path):
+    """Walk a repo directory and chunk every .py file found.
+
+    Single home for the "find files, chunk each one" loop - the
+    indexing entrypoints (API, CLI) should call this instead of
+    re-implementing the walk themselves.
+    """
+    from pathlib import Path
+
+    all_chunks = []
+    for py_file in Path(repo_path).rglob("*.py"):
+        all_chunks.extend(chunk_python_file(str(py_file)))
+    return all_chunks
+
+
 if __name__ == "__main__":
     chunks = chunk_python_file("fixtures/sample_repo/auth.py")
 

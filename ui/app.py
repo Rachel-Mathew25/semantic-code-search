@@ -4,13 +4,17 @@ import requests
 st.title("🔍 Semantic Code Search")
 
 # Repository indexing
-repo_url = st.text_input("GitHub Repository URL")
+repo_path = st.text_input(
+    "Local repository path",
+    help="A path on this machine, e.g. fixtures/sample_repo. "
+         "GitHub URL support (clone-then-index) isn't built yet.",
+)
 
 if st.button("Index Repository"):
-    if repo_url:
+    if repo_path:
         response = requests.post(
             "http://127.0.0.1:8000/index",
-            json={"repo_url": repo_url},
+            json={"repo_path": repo_path},
         )
 
         if response.status_code == 200:

@@ -1,45 +1,24 @@
 import argparse
-from pathlib import Path
 
-from src.indexer.chunker import chunk_python_file
+from src.indexer.chunker import chunk_repository
 from src.indexer.embedder import embed_text
-from src.store.vector_store import collection
-
-try:
-    client.delete_collection("code_chunks")
-except Exception:
-    pass
-
-
+from src.store import vector_store
 
 parser = argparse.ArgumentParser(
     description="Index a Python repository into ChromaDB"
 )
-
+parser.add_argument("repo_path", help="Path to the repository to index")
 parser.add_argument(
-    "repo_path",
-    help="Path to the repository to index"
+    "--reset",
+    action="store_true",
+    help="Wipe the existing collection before indexing (fresh start)",
 )
-
 args = parser.parse_args()
 
-repo = Path(args.repo_path)
+if args.reset:
+    vector_store.reset_collection()
 
-for py_file in repo.rglob("*.py"):
-    chunks = chunk_python_file(str(py_file))
+chunks = chunk_repository(args.repo_path)
+vector_store.add_chunks(chunks, embed_fn=embed_text)
 
-    for chunk in chunks:
-        collection.add(
-            ids=[chunk["id"]],
-            embeddings=[embed_text(chunk["code"])],
-            documents=[chunk["code"]],
-            metadatas=[{
-                "name": chunk["name"],
-                "type": chunk["type"],
-                "file_path": chunk["file_path"],
-                "start_line": chunk["start_line"],
-                "end_line": chunk["end_line"],
-            }],
-        )
-
-print("Repository indexed successfully!")
+print(f"Indexed {len(chunks)} chunks from {args.repo_path}")

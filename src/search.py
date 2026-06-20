@@ -1,25 +1,15 @@
-from src.indexer.embedder import embed_text
-from src.store.vector_store import collection
+from src.retriever.retriever import retrieve
 
 query = input("Search: ")
+results = retrieve(query)
 
-results = collection.query(
-    query_embeddings=[embed_text(query)],
-    n_results=3,
-    include=["documents", "metadatas", "distances"],
-)
-
-for metadata, document, distance in zip(
-    results["metadatas"][0],
-    results["documents"][0],
-    results["distances"][0],
-):
+for r in results:
     print("=" * 60)
-    print(f"📄 File : {metadata['file_path']}")
-    print(f"🏷️  Name : {metadata['name']}")
-    print(f"📌 Type : {metadata['type']}")
-    print(f"📍 Lines: {metadata['start_line']} - {metadata['end_line']}")
-    print(f"📊 Distance : {distance:.4f}")
+    print(f"File : {r['file']}")
+    print(f"Name : {r['name']}")
+    print(f"Type : {r['type']}")
+    print(f"Lines: {r['start_line']} - {r['end_line']}")
+    print(f"Distance: {r['distance']:.4f}")
     print()
-    print(document)
+    print(r["code"])
     print()
