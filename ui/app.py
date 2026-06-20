@@ -1,59 +1,116 @@
+"""
+Self-contained Streamlit app for Hugging Face Spaces deployment.
+
+Unlike the local dev version, this does NOT call out to a separate
+FastAPI server - Spaces' free Streamlit SDK runs a single process, so
+this imports the pipeline functions directly. Same underlying logic
+(chunker, embedder, vector_store, retriever), just no HTTP hop.
+"""
+
+import subprocess
+import tempfile
+import shutil
+
 import streamlit as st
-import requests
 
+from src.indexer.chunker import chunk_repository
+from src.store import vector_store
+from src.retriever.retriever import retrieve
+
+
+st.set_page_config(page_title="Semantic Code Search", page_icon="🔍")
 st.title("🔍 Semantic Code Search")
-
-# Repository indexing
-repo_path = st.text_input(
-    "Local repository path",
-    help="A path on this machine, e.g. fixtures/sample_repo. "
-         "GitHub URL support (clone-then-index) isn't built yet.",
+st.caption(
+    "Search a Python codebase using natural language. "
+    "Ask 'where is authentication handled?' instead of guessing keywords."
 )
 
-if st.button("Index Repository"):
-    if repo_path:
-        response = requests.post(
-            "http://127.0.0.1:8000/index",
-            json={"repo_path": repo_path},
+
+@st.cache_resource(show_spinner=False)
+def _embedder():
+    # Imported and loaded lazily, once per Space instance, not per request.
+    from src.indexer.embedder import embed_text
+    return embed_text
+
+
+def index_github_repo(github_url: str) -> int:
+    """Shallow-clone a public GitHub repo into a temp dir and index it.
+
+    Shallow clone (depth=1) because we only need the current file
+    contents, not history - keeps this fast on a free-tier Space.
+    """
+    tmp_dir = tempfile.mkdtemp()
+    try:
+        subprocess.run(
+            ["git", "clone", "--depth", "1", github_url, tmp_dir],
+            check=True,
+            capture_output=True,
+            timeout=120,
         )
+        vector_store.reset_collection()
+        chunks = chunk_repository(tmp_dir)
+        vector_store.add_chunks(chunks, embed_fn=_embedder())
+        return len(chunks)
+    finally:
+        shutil.rmtree(tmp_dir, ignore_errors=True)
 
-        if response.status_code == 200:
-            st.success(response.json()["message"])
-        else:
-            st.error("Failed to index repository.")
 
-# Search section
-st.divider()
+def index_demo_repo() -> int:
+    """Index the small bundled fixture repo - no network needed, instant."""
+    vector_store.reset_collection()
+    chunks = chunk_repository("fixtures/sample_repo")
+    vector_store.add_chunks(chunks, embed_fn=_embedder())
+    return len(chunks)
 
-query = st.text_input("Search your repository")
 
-if st.button("Search"):
-    response = requests.get(
-        "http://127.0.0.1:8000/search",
-        params={"q": query},
+# --- Indexing controls ---
+st.subheader("1. Index a repository")
+
+col1, col2 = st.columns([3, 1])
+with col1:
+    github_url = st.text_input(
+        "Public GitHub repository URL",
+        placeholder="https://github.com/psf/requests",
     )
+with col2:
+    st.write("")
+    st.write("")
+    use_demo = st.button("Use demo repo instead")
 
-    results = response.json()
+if st.button("Index Repository", type="primary"):
+    if not github_url:
+        st.warning("Enter a GitHub URL, or click 'Use demo repo instead'.")
+    else:
+        with st.spinner(f"Cloning and indexing {github_url} ..."):
+            try:
+                n = index_github_repo(github_url)
+                st.session_state["indexed"] = True
+                st.success(f"Indexed {n} chunks from {github_url}")
+            except subprocess.CalledProcessError:
+                st.error("Couldn't clone that repo. Check the URL is public and correct.")
+            except subprocess.TimeoutExpired:
+                st.error("Clone timed out - repo may be too large for this demo.")
 
-    if len(results) == 0:
-        st.warning("No results found.")
+if use_demo:
+    with st.spinner("Indexing demo repo..."):
+        n = index_demo_repo()
+        st.session_state["indexed"] = True
+        st.success(f"Indexed {n} chunks from the bundled demo repo (auth, payments, db, utils)")
 
-    for result in results:
-        st.subheader(result["name"])
+# --- Search ---
+st.divider()
+st.subheader("2. Search")
 
-        st.write(f"📄 File: {result['file']}")
-
-        st.write(
-            f"📍 Lines {result['start_line']} - {result['end_line']}"
-        )
-
-        st.write(
-            f"🎯 Similarity Score: {result['distance']:.4f}"
-        )
-
-        st.code(
-            result["code"],
-            language="python"
-        )
-
-        st.divider()
+if not st.session_state.get("indexed"):
+    st.info("Index a repository above first.")
+else:
+    query = st.text_input("Ask a question about the codebase", placeholder="how is authentication handled?")
+    if st.button("Search") and query:
+        results = retrieve(query, n_results=5)
+        if not results:
+            st.warning("No results found.")
+        for r in results:
+            st.markdown(f"**{r['name']}**  ({r['type']})")
+            st.caption(f"{r['file']} : lines {r['start_line']}-{r['end_line']}  ·  distance {r['distance']:.3f}")
+            st.code(r["code"], language="python")
+            st.divider()
