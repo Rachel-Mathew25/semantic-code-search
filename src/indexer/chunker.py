@@ -47,17 +47,40 @@ def chunk_python_file(file_path):
     return chunks
 
 
-def chunk_repository(repo_path):
+def _is_test_file(py_file) -> bool:
+    """Heuristic for excluding test code from the search index.
+
+    Test functions (test_foo, helper fixtures, etc.) tend to dominate
+    semantic search results for queries like "how is X handled" because
+    they literally contain the words "test_<feature>" - but a developer
+    asking that question almost always wants the implementation, not
+    the test. We exclude anything under a tests/ or test/ directory, or
+    named test_*.py / *_test.py.
+    """
+    parts = {p.lower() for p in py_file.parts}
+    if "tests" in parts or "test" in parts:
+        return True
+    name = py_file.name.lower()
+    return name.startswith("test_") or name.endswith("_test.py")
+
+
+def chunk_repository(repo_path, include_tests: bool = False):
     """Walk a repo directory and chunk every .py file found.
 
     Single home for the "find files, chunk each one" loop - the
     indexing entrypoints (API, CLI) should call this instead of
     re-implementing the walk themselves.
+
+    By default, test files are excluded (see _is_test_file) since they
+    tend to crowd out implementation code in search results. Pass
+    include_tests=True to index them anyway.
     """
     from pathlib import Path
 
     all_chunks = []
     for py_file in Path(repo_path).rglob("*.py"):
+        if not include_tests and _is_test_file(py_file):
+            continue
         all_chunks.extend(chunk_python_file(str(py_file)))
     return all_chunks
 
