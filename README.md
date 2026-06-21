@@ -6,8 +6,7 @@ Ask "where is authentication handled?" or "show session management code" and
 get back the actual functions and classes that answer it — even when those
 exact words don't appear anywhere in the code.
 
-<!-- DEMO GIF GOES HERE -->
-<!-- ![demo](docs/demo.gif) -->
+![demo](docs/demo.gif)
 
 ## How it works
 
