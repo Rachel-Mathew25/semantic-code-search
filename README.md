@@ -142,8 +142,8 @@ benchmarks/
 
 ## Limitations
 
-- Python only (AST-based parsing; no tree-sitter yet)
-- No reranking stage yet — retrieval is single-pass cosine similarity
-- "Setting request headers"-style queries are the weakest case so far
-  (1/3 precision in testing) — header-related code is scattered across
-  multiple unrelated-looking functions in most codebases
+## Limitations
+
+- Python only (AST-based parsing; no tree-sitter yet — Java/JS/TS support is on the roadmap)
+- "Setting request headers"-style queries are the weakest case (1/3 precision in testing) — header-related code tends to be scattered across multiple unrelated-looking functions in most codebases
+- Reranking adds latency (~200-400ms) on first query due to cross-encoder model load; subsequent queries are faster once the model is cached
