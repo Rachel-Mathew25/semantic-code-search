@@ -40,6 +40,7 @@ well-known open-source library) on a MacBook Air, CPU only, no GPU.
 | Index time | 2.77s |
 | Avg query latency | 13.5ms (10 queries) |
 | Precision@3 | 90% (27/30 relevant results, manually judged) |
+| Test coverage | 14 unit tests (chunker, embedder, vector store, reranker) |
 
 Reproduce it yourself:
 ```bash
@@ -73,6 +74,16 @@ logic duplicated across three files, which led to a real bug (the UI sent
 `repo_url` while the API expected `repo_path`) that a single source of truth
 would have prevented.
 
+**Two-stage retrieval with cross-encoder reranking.** The initial vector
+search (Stage 1) embeds the query and all chunks independently and ranks
+by cosine similarity — fast, but approximate. A cross-encoder reranker
+(Stage 2) then takes the top candidates and scores each one by looking
+at the query and the code chunk *together* in a single model pass, which
+is more accurate but too slow to run against the entire index. The result:
+Stage 1 retrieves a wide candidate pool cheaply, Stage 2 picks the best
+ones precisely. This is a standard two-stage retrieval pattern used in
+production RAG systems.
+
 ## Quickstart
 
 ```bash
@@ -91,6 +102,9 @@ python3 -m src.search
 # Or run the API + UI
 uvicorn src.api.main:app --reload
 streamlit run ui/app.py
+
+# Run the test suite
+pytest tests/ -v
 ```
 
 ## Architecture
