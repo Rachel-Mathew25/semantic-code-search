@@ -135,9 +135,9 @@ benchmarks/
 - [x] Embedding + ChromaDB storage
 - [x] FastAPI backend + Streamlit UI
 - [x] Benchmarking against a real open-source repo
-- [ ] Cross-encoder reranking (second-stage precision improvement)
-- [ ] Unit test suite
-- [ ] Live deployment (Hugging Face Spaces)
+- [x] Cross-encoder reranking (second-stage precision improvement)
+- [x] Unit test suite
+- [x] Live deployment (Hugging Face Spaces)
 - [ ] Multi-language support (tree-sitter: Java, JavaScript, TypeScript)
 
 ## Limitations
