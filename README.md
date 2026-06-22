@@ -1,8 +1,6 @@
 # Semantic Code Search
 
-Search a Python codebase using natural language
-
-**[▶ Try it live on Hugging Face Spaces](https://huggingface.co/spaces/Rachel-Mathew/semantic-search-engine)** instead of exact keyword matching.
+Search a Python codebase using natural language instead of exact keyword matching.
 
 Ask "where is authentication handled?" or "show session management code" and
 get back the actual functions and classes that answer it — even when those
